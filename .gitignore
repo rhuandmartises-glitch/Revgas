@@ -1,0 +1,25 @@
+# Python e ambientes locais
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Segredos, credenciais e bancos locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs e saídas locais
+*.log
+.DS_Store
+Thumbs.db
