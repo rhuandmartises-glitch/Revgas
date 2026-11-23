@@ -51,3 +51,26 @@ def montar_mensagem(telefone: str, resposta: Resposta) -> dict[str, Any]:
             },
         },
     }
+
+
+def extrair_mensagens(corpo_webhook: Any) -> list[MensagemRecebida]:
+    """Recebe todos os eventos de mensagens no payload, sem descartar mensagens em lote."""
+    if not isinstance(corpo_webhook, dict):
+        return []
+    resultado = []
+    for entry in corpo_webhook.get('entry', []):
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get('changes', []):
+            if not isinstance(change, dict):
+                continue
+            value = change.get('value', {})
+            if not isinstance(value, dict):
+                continue
+            for mensagem in value.get('messages', []):
+                # Reutiliza o parser histórico sem duplicar as regras de decodificação.
+                isolado = {'entry': [{'changes': [{'value': {'messages': [mensagem]}}]}]}
+                extraida = extrair_mensagem(isolado)
+                if extraida is not None:
+                    resultado.append(extraida)
+    return resultado

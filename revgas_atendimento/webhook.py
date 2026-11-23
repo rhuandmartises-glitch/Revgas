@@ -10,6 +10,8 @@ from .config import Configuracao
 from .modelos import ErroDeDominio
 from .processador import ProcessadorWhatsApp
 from .seguranca import assinatura_valida, tokens_iguais
+from .whatsapp import extrair_mensagens
+from .persistencia import CaixaDeMensagensSQLite
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +25,10 @@ class RequisicaoRecusadaError(ErroDeDominio):
 
 
 class ServicoDeWebhook:
-    def __init__(self, configuracao: Configuracao, processador: ProcessadorWhatsApp) -> None:
+    def __init__(self, configuracao: Configuracao, processador: ProcessadorWhatsApp, caixa: CaixaDeMensagensSQLite | None = None) -> None:
         self._config = configuracao
         self._processador = processador
+        self._caixa = caixa
         self._tarefas: set[asyncio.Task[None]] = set()
 
     def verificar(self, modo: str, token: str, desafio: str) -> str:
@@ -46,6 +49,9 @@ class ServicoDeWebhook:
         except json.JSONDecodeError as erro:
             raise RequisicaoRecusadaError(400, "JSON inválido.") from erro
 
+        if self._caixa is not None:
+            await self._caixa.registrar(extrair_mensagens(corpo))
+            return
         tarefa = asyncio.create_task(self._processar_sem_propagar(corpo))
         self._tarefas.add(tarefa)
         tarefa.add_done_callback(self._tarefas.discard)
