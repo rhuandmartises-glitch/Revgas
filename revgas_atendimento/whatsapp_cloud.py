@@ -12,7 +12,7 @@ import urllib.request
 from collections.abc import Mapping
 from typing import Any
 
-from .modelos import IntegracaoError
+from .modelos import IntegracaoError, EntregaIncertaError
 
 URL_BASE_PADRAO = "https://graph.facebook.com"
 CODIGO_TOKEN_INVALIDO = 190
@@ -48,9 +48,10 @@ class WhatsAppCloudApi:
             with urllib.request.urlopen(requisicao, timeout=self._timeout_s) as resposta:
                 resposta.read()
         except urllib.error.HTTPError as erro:
-            raise IntegracaoError(_descrever_erro_http(erro)) from erro
+            classe = EntregaIncertaError if erro.code >= 500 else IntegracaoError
+            raise classe(_descrever_erro_http(erro)) from erro
         except (urllib.error.URLError, TimeoutError) as erro:
-            raise IntegracaoError(
+            raise EntregaIncertaError(
                 f"Falha de rede ao chamar a API do WhatsApp ({type(erro).__name__})."
             ) from erro
 

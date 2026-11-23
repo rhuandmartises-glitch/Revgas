@@ -8,7 +8,7 @@ import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from revgas_atendimento.modelos import IntegracaoError
+from revgas_atendimento.modelos import IntegracaoError, EntregaIncertaError
 from revgas_atendimento.whatsapp_cloud import WhatsAppCloudApi
 
 TOKEN = "EAAB-token-super-secreto"
@@ -104,7 +104,7 @@ class TesteEnvioPelaApiDaMeta(unittest.IsolatedAsyncioTestCase):
 
     async def test_timeout_vira_integracao_error(self):
         with ServidorFalso(atraso_s=0.6) as servidor:
-            with self.assertRaises(IntegracaoError):
+            with self.assertRaises(EntregaIncertaError):
                 await cliente(servidor.url_base, timeout_s=0.2).enviar("5511999990000", MENSAGEM)
 
 

@@ -21,6 +21,10 @@ class IntegracaoError(ErroDeDominio):
     """Falha ao gravar no ERP ou ao enviar pelo WhatsApp."""
 
 
+class EntregaIncertaError(IntegracaoError):
+    """O destinatário pode ter recebido a mensagem: não repetir automaticamente."""
+
+
 class DadoInvalidoError(ErroDeDominio):
     """Entrada rejeitada. A mensagem é amigável e pode ser enviada ao cliente."""
 

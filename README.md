@@ -122,3 +122,71 @@ Para homologar: iniciar com banco descartável, enviar webhook assinado, repetir
 mesmo `wamid`, simular queda antes/depois do envio, reiniciar a API, acompanhar
 linhas de `mensagens` até `sent` ou `dead` e verificar que o mesmo telefone não
 recebe respostas fora de sequência. Não utilize informações pessoais reais na demo.
+
+## Estabilização corretiva — `fix/estabilidade-revgas`
+
+A correção mantém o fluxo original de cadastro, o adaptador de simulação, a inbox
+SQLite e o webhook assinado. Nenhum recurso de IA ou pedidos de gás foi adicionado.
+
+### Falhas corrigidas
+
+| Arquivo | Antes | Depois / verificação |
+| --- | --- | --- |
+| `revgas_atendimento/worker.py` | Exceções no ACK local ou no acesso ao banco encerravam o loop. | Supervisão com backoff, cancelamento normal e tratamento da confirmação incerta (`test_supervisor_recupera_erro_e_aceita_cancelamento`, `test_falha_de_confirmacao_apos_envio_nao_interrompe_worker`). |
+| `revgas_atendimento/persistencia.py` | `sending` vencido voltava para `ready` e podia ser enviado outra vez sem aviso. | Lease vencido passa para `uncertain`, bloqueando retransmissão automática (`test_se_o_banco_cair_ao_marcar_incerta_lease_isola_envio`). |
+| `revgas_atendimento/persistencia.py` | `dead` liberava mensagens posteriores do mesmo contato. | `dead` e `uncertain` bloqueiam a conversa até intervenção; reabertura é explícita (`test_dead_bloqueia_mensagens_posteriores_e_reabertura_manual`). |
+| `revgas_atendimento/whatsapp_cloud.py` e `modelos.py` | Erro HTTP 5xx/timeout era tratado como falha genérica e podia gerar novo envio automático. | `EntregaIncertaError` distingue resposta externa de resultado incerto e interrompe reenvio automático (`test_falha_de_rede_com_envio_incerto_nao_retransmite`, `test_timeout_vira_integracao_error`). |
+| `revgas_atendimento/api.py` | Sem rota de saúde. | `GET /health` retorna 200 somente com worker ativo e SQLite acessível, ou 503 se indisponível; não expõe dados privados (`TesteHealth`). |
+| `test_estabilidade_worker.py` | Casos de concorrência, supervisão e falhas de ACK não tinham cobertura dedicada. | Testes de disputa por workers, persistência, idempotência, dead/uncertain, recuperação e operação sem Meta. |
+
+### Política de entrega, retries e intervenção
+
+- `pending`: mensagem aceita e persistida, ainda sem executar regra de cadastro.
+- `processing`: reivindicada por worker; lease vencido retorna a `pending` para reprocessar.
+- `sending`: resposta e alteração da sessão já foram persistidas; envio iniciado ou iminente.
+- `ready`: resposta preparada e reenvio liberado após **falha de envio considerada conclusiva**; backoff exponencial até cinco tentativas (valor padrão).
+- `sent`: a operação local de envio foi confirmada e registrada.
+- `dead`: cinco falhas (padrão); não avança a conversa automaticamente.
+- `uncertain`: envio com resultado indeterminado (ex.: timeout, erro HTTP 5xx, perda do ACK no banco, lease `sending` expirado). **Não será reenviado automaticamente**. Pode ser entregue ao cliente ou não.
+
+Todas as mensagens anteriores ainda não `sent` bloqueiam mensagens posteriores do
+mesmo telefone, preservando a consistência da sequência de atendimento. Um
+operador deve consultar os registros e o destino externo antes de decidir sobre
+reprocessamento. A função `CaixaDeMensagensSQLite.reprocessar_manualmente(id)`
+reabre itens `dead`; para `uncertain`, exige `reenviar_incerta=True` **após confirmação
+humana de que o reenvio é apropriado**. Não há painel de operação nesta versão.
+
+Contadores locais sem PII: `await caixa.resumo()`. O monitoramento público
+`GET /health` retorna apenas `status`, `worker`, `database` e `mode` (simulation
+ou whatsapp); não deve ser confundido com prova de entrega. A demonstração CLI
+(`python -m revgas_atendimento`) não usa WhatsApp real e não persiste cadastros
+entre execuções; a API HTTP demonstra persistência SQLite.
+
+### Comandos de validação
+
+```bash
+python -m pytest -q
+python -m unittest discover -v
+python -m compileall -q revgas_atendimento
+python -m revgas_atendimento
+```
+
+### Limitações e riscos residuais
+
+1. **At-least-once de entrada, não exactly-once de saída.** Uma falha depois que a
+   Meta aceitou o envio, mas antes do ACK persistir, não pode ser resolvida sem
+   confirmação externa. A política `uncertain` evita reenvio automático, mas pode
+   exigir intervenção humana e atrasar conversas.
+2. **Envios não confirmados por falhas do gateway genérico:** exceções não marcadas
+   como `EntregaIncertaError` continuam no retry controlado; gateways novos devem
+   distinguir erro conclusivo de resultado incerto.
+3. **Leases:** dois processos em máquinas isoladas, travas de longa duração ou
+   operação lenta maior que o lease fixo exigem testes de carga e fencing tokens.
+4. **SQLite síncrono** na aplicação assíncrona pode bloquear o event loop sob
+   volume elevado. A solução é adequada a um protótipo local de baixo volume;
+   PostgreSQL e filas distribuídas não foram introduzidos.
+5. **Ordem:** é respeitada a ordem de persistência da inbox, não a sequência
+   absoluta de chegada à Meta. Ainda são necessários monitoramento persistente,
+   políticas LGPD/backup e testes com credenciais reais antes de produção.
+6. **Endpoint de saúde:** não deve ser usado sozinho como indicador de capacidade
+   ou de entrega efetiva do WhatsApp; mantenha acesso restrito se exposto à rede.

@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 
 from .composicao import montar_componentes
 from .config import Configuracao
@@ -24,6 +24,7 @@ def criar_app(configuracao: Configuracao | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         tarefa = asyncio.create_task(componentes.worker.executar_continuamente(configuracao.intervalo_worker_s))
+        app.state.tarefa_worker = tarefa
         try:
             yield
         finally:
@@ -35,6 +36,27 @@ def criar_app(configuracao: Configuracao | None = None) -> FastAPI:
 
     app = FastAPI(title='RevGás Atendimento', lifespan=lifespan)
     app.state.componentes = componentes
+
+    @app.get('/health')
+    async def saude() -> JSONResponse:
+        """Sinal operacional mínimo; sem mensagens, telefones nem tokens."""
+        tarefa = getattr(app.state, 'tarefa_worker', None)
+        worker_ativo = tarefa is not None and not tarefa.done()
+        try:
+            with componentes.banco.conexao() as conexao:
+                conexao.execute('SELECT 1').fetchone()
+            banco_ativo = True
+        except Exception:
+            logger.exception('Falha ao verificar disponibilidade do banco')
+            banco_ativo = False
+        pronto = worker_ativo and banco_ativo
+        return JSONResponse(
+            {'status': 'ok' if pronto else 'unavailable',
+             'worker': 'running' if worker_ativo else 'stopped',
+             'database': 'ok' if banco_ativo else 'unavailable',
+             'mode': 'simulation' if configuracao.credenciais_whatsapp is None else 'whatsapp'},
+            status_code=200 if pronto else 503,
+        )
 
     @app.get('/webhook/whatsapp')
     async def verificar_webhook(
