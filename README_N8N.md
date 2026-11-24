@@ -10,7 +10,24 @@ Cliente → WhatsApp → Meta → n8n (Webhook) → POST /mensagem (Python) → 
 > Use **só um** modo por número. Se o webhook da Meta aponta para o n8n, ele não aponta para
 > `/webhook/whatsapp` do Python (senão o cliente recebe respostas em dobro).
 
-## O que você precisa
+## n8n no próprio computador (sem n8n Cloud)
+
+Precisa do **Node.js 24** (o 26 ainda não tem os módulos nativos prontos para o n8n):
+```powershell
+winget install OpenJS.NodeJS.24
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\instalar_n8n.ps1
+```
+Para usar (três janelas, deixe as três abertas):
+1. Bot Python: `.\.venv\Scripts\python.exe -m uvicorn revgas_atendimento.api_pedido:criar_app_com_pedido_de_gas --factory --host 127.0.0.1 --port 8000`
+2. Túnel **para o n8n** (porta 5678): `& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://localhost:5678`
+3. n8n: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\abrir_n8n.ps1 -Tunel https://<endereço-do-túnel>`
+
+Abra `http://localhost:5678`. Neste modo o n8n chama o bot em `http://127.0.0.1:8000/mensagem` direto (sem túnel para o
+Python); só o n8n fica exposto, e só pelo túnel. Na primeira vez, **crie logo a conta de dono**: até ela existir, quem
+tiver o endereço do túnel vê a tela de criação. O endereço do túnel muda a cada reinício: rode o passo 3 de novo com o
+novo endereço e atualize a URL de callback na Meta.
+
+## O que você precisa (n8n Cloud)
 - **Conta no n8n Cloud** (n8n.io). Este computador não tem Node.js nem Docker para rodar o n8n localmente.
 - Do painel da Meta (**WhatsApp → Configuração da API**): o **token de acesso** (`EAA…`) e o **Phone Number ID**.
   O seu celular cadastrado como destinatário do número de teste.
