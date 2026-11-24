@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>RevGás · Simulador</title>
+  <link rel="stylesheet" href="/chat.css">
+  <script src="/chat.js" defer></script>
+</head>
+<body>
+  <div class="app" id="app" data-tela="chat">
+
+    <!-- Lista de clientes simulados -->
+    <aside class="contatos" aria-label="Clientes simulados">
+      <header class="barra barra--contatos">
+        <div class="barra__titulo">
+          <span class="marca">RevGás</span>
+          <span class="barra__sub">Simulador de atendimento</span>
+        </div>
+        <button class="icone" id="botao-novo" type="button" title="Novo cliente" aria-label="Novo cliente" aria-expanded="false" aria-controls="form-novo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+        </button>
+      </header>
+
+      <form class="novo" id="form-novo" hidden autocomplete="off">
+        <label>Nome do cliente
+          <input id="novo-nome" maxlength="40" placeholder="Ex.: Dona Maria">
+        </label>
+        <label>Número de WhatsApp (com DDD)
+          <input id="novo-telefone" inputmode="tel" maxlength="20" placeholder="Ex.: 11 99999-0002" required>
+        </label>
+        <p class="novo__erro" id="novo-erro" role="alert"></p>
+        <div class="novo__acoes">
+          <button type="button" class="botao botao--leve" id="novo-cancelar">Cancelar</button>
+          <button type="submit" class="botao">Adicionar</button>
+        </div>
+      </form>
+
+      <ul class="lista" id="lista-contatos"></ul>
+      <p class="contatos__nota">Cada cliente é um número de WhatsApp diferente. O que for gravado (cadastro e pedidos) fica no mesmo banco do servidor.</p>
+    </aside>
+
+    <!-- Conversa -->
+    <main class="chat" aria-label="Conversa">
+      <header class="barra barra--chat">
+        <button class="icone so-celular" id="botao-voltar" type="button" aria-label="Voltar para a lista">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>
+        </button>
+        <div class="avatar avatar--loja" aria-hidden="true">RG</div>
+        <div class="barra__titulo">
+          <span class="barra__nome">RevGás Atendimento</span>
+          <span class="barra__sub" id="status-bot">conversando como <strong id="nome-ativo"></strong></span>
+        </div>
+        <button class="icone" id="botao-limpar" type="button" title="Limpar esta conversa da tela" aria-label="Limpar esta conversa da tela">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zm3.5-9h1.5v8H9.5zm3.5 0h1.5v8H13zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+        <button class="icone" id="botao-painel" type="button" title="Dados no sistema" aria-label="Mostrar dados no sistema" aria-expanded="false" aria-controls="painel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+        </button>
+      </header>
+
+      <div class="mensagens" id="mensagens" role="log" aria-live="polite" aria-relevant="additions"></div>
+
+      <div class="sugestoes" id="sugestoes" aria-label="Respostas rápidas"></div>
+
+      <form class="compositor" id="compositor" autocomplete="off">
+        <label class="visualmente-oculto" for="campo-texto">Mensagem</label>
+        <textarea id="campo-texto" rows="1" maxlength="4096" placeholder="Mensagem"></textarea>
+        <button class="enviar" id="botao-enviar" type="submit" aria-label="Enviar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </form>
+    </main>
+
+    <!-- O que ficou gravado para este número -->
+    <aside class="painel" id="painel" aria-label="Dados no sistema">
+      <header class="barra barra--painel">
+        <button class="icone so-estreito" id="botao-fechar-painel" type="button" aria-label="Fechar painel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+        </button>
+        <div class="barra__titulo">
+          <span class="barra__nome">No sistema</span>
+          <span class="barra__sub">atualiza a cada resposta</span>
+        </div>
+      </header>
+      <div class="painel__corpo">
+        <section class="cartao">
+          <h2>Cadastro</h2>
+          <div id="painel-cadastro"></div>
+        </section>
+        <section class="cartao">
+          <h2>Pedidos</h2>
+          <ul class="pedidos" id="painel-pedidos"></ul>
+        </section>
+        <p class="painel__info" id="painel-info"></p>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

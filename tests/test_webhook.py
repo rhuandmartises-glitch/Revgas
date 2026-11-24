@@ -123,7 +123,7 @@ class TesteComposicaoEConfiguracao(unittest.TestCase):
         ambiente = {"WA_APP_SECRET": "s", "WA_VERIFY_TOKEN": "t", "WA_ACCESS_TOKEN": " tok \n", "WA_PHONE_NUMBER_ID": "123"}
         with patch.dict(os.environ, ambiente, clear=True):
             credenciais = Configuracao.do_ambiente().credenciais_whatsapp
-        self.assertEqual((credenciais.token_acesso, credenciais.id_numero, credenciais.versao_api), ("tok", "123", "v26.0"))
+        self.assertEqual((credenciais.token_acesso.revelar(), credenciais.id_numero, credenciais.versao_api), ("tok", "123", "v26.0"))
 
     def test_credenciais_pela_metade_falham_cedo(self):
         with patch.dict(os.environ, {"WA_APP_SECRET": "s", "WA_VERIFY_TOKEN": "t", "WA_ACCESS_TOKEN": "tok"}, clear=True):

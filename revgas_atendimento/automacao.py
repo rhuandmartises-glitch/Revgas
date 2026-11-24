@@ -13,7 +13,7 @@ from .deduplicador import Deduplicador
 from .erros_http import RequisicaoRecusadaError
 from .modelos import Entrada
 from .portas import Atendente
-from .seguranca import tokens_iguais
+from .segredo import Segredo
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,9 @@ _MAXIMO_DIGITOS_TELEFONE = 15  # limite internacional (E.164)
 
 
 class ServicoDeAutomacao:
-    def __init__(self, atendimento: Atendente, chave_api: str | None) -> None:
+    def __init__(self, atendimento: Atendente, chave_api: Segredo | str | None) -> None:
         self._atendimento = atendimento
-        self._chave_api = chave_api
+        self._chave_api = Segredo.de(chave_api)
         self._deduplicador = Deduplicador()
 
     async def responder(
@@ -35,9 +35,9 @@ class ServicoDeAutomacao:
         Levanta RequisicaoRecusadaError: 503 se a rota não foi configurada, 401 se a chave não
         confere, 422 se o telefone é inválido.
         """
-        if not self._chave_api:
+        if self._chave_api is None:
             raise RequisicaoRecusadaError(503, "Rota desativada: defina N8N_API_KEY no servidor.")
-        if not tokens_iguais(self._chave_api, chave_recebida):
+        if not self._chave_api.confere(chave_recebida):
             raise RequisicaoRecusadaError(401, "Chave de API inválida.")
 
         digitos = "".join(caractere for caractere in telefone if caractere.isdigit())

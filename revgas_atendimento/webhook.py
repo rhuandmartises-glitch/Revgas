@@ -9,7 +9,7 @@ from typing import Any
 from .config import Configuracao
 from .erros_http import RequisicaoRecusadaError
 from .processador import ProcessadorWhatsApp
-from .seguranca import assinatura_valida, tokens_iguais
+from .seguranca import assinatura_valida
 
 __all__ = ["RequisicaoRecusadaError", "ServicoDeWebhook"]  # erro reexportado: imports antigos continuam valendo
 
@@ -27,9 +27,9 @@ class ServicoDeWebhook:
     def verificar(self, modo: str, token: str, desafio: str) -> str:
         """Handshake inicial da Meta (GET): devolve o desafio se o token de verificação conferir."""
         esperado = self._config.token_verificacao_whatsapp
-        if not esperado:
+        if esperado is None:
             raise RequisicaoRecusadaError(503, _MOTIVO_DESATIVADO)
-        if modo == "subscribe" and tokens_iguais(esperado, token):
+        if modo == "subscribe" and esperado.confere(token):
             return desafio
         raise RequisicaoRecusadaError(403, "Token de verificação inválido.")
 
@@ -39,9 +39,9 @@ class ServicoDeWebhook:
         A Meta espera resposta em poucos segundos. PRODUÇÃO: fila (Redis Streams, Celery).
         """
         segredo = self._config.segredo_app_whatsapp
-        if not segredo:
+        if segredo is None:
             raise RequisicaoRecusadaError(503, _MOTIVO_DESATIVADO)
-        if not assinatura_valida(segredo, corpo_bruto, assinatura):
+        if not assinatura_valida(segredo.revelar(), corpo_bruto, assinatura):
             raise RequisicaoRecusadaError(401, "Assinatura inválida.")
         try:
             corpo = json.loads(corpo_bruto)

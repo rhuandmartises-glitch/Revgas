@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .modelos import IntegracaoError
+from .segredo import Segredo
 
 URL_BASE_PADRAO = "https://graph.facebook.com"
 CODIGO_TOKEN_INVALIDO = 190
@@ -21,14 +22,14 @@ CODIGO_TOKEN_INVALIDO = 190
 class WhatsAppCloudApi:
     def __init__(
         self,
-        token_acesso: str,
+        token_acesso: Segredo | str,
         id_numero: str,
         versao_api: str,
         url_base: str = URL_BASE_PADRAO,
         timeout_s: float = 10.0,
     ) -> None:
         self._url = f"{url_base}/{versao_api}/{id_numero}/messages"
-        self._token_acesso = token_acesso
+        self._token_acesso = Segredo.de(token_acesso)  # Segredo: não aparece se este objeto for logado
         self._timeout_s = timeout_s
 
     async def enviar(self, telefone: str, mensagem: Mapping[str, Any]) -> None:
@@ -40,7 +41,7 @@ class WhatsAppCloudApi:
             data=json.dumps(payload).encode("utf-8"),
             method="POST",
             headers={
-                "Authorization": f"Bearer {self._token_acesso}",
+                "Authorization": "Bearer " + self._token_acesso.revelar(),
                 "Content-Type": "application/json",
             },
         )

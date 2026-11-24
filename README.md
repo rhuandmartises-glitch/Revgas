@@ -2,6 +2,22 @@
 
 Código-fonte original do protótipo RevGás, extraído de `Luchianni.rar`. Esta publicação é destinada ao versionamento e à demonstração, não a uma operação comercial em produção.
 
+## Simulador visual (chat estilo WhatsApp)
+
+```powershell
+.\.venv\Scripts\python.exe -m revgas_atendimento.simulador
+```
+Abre `http://127.0.0.1:8001` no navegador: uma tela de chat parecida com a do WhatsApp, ligada ao atendimento de verdade (mesmo banco `dados/revgas.sqlite3`, mesma consulta de CEP, mesmo prazo de cancelamento). Dá para criar vários clientes (cada um é um número de WhatsApp), usar respostas rápidas e ver, no painel "No sistema", o cadastro e os pedidos gravados para aquele número. Funciona no celular e no tema escuro. Nada é enviado ao WhatsApp. Opções: `--porta 8010`, `--sem-navegador`.
+
+O simulador só atende este computador: recusa outras máquinas, pedidos que passaram por proxy/túnel e endereços diferentes de 127.0.0.1/localhost. A página não recebe nenhuma chave nem token.
+
+## Segredos
+
+- Tokens e chaves ficam só no `.env` (fora do git) e, dentro do programa, viram `Segredo` (`segredo.py`): aparecem como `***` em log, print, traceback e f-string. O valor real só sai com `.revelar()`, nos dois lugares que precisam dele (assinatura da Meta e cabeçalho da Cloud API).
+- O servidor lê o `.env` direto para a configuração, sem copiar os valores para as variáveis de ambiente do processo (programas filhos não herdam os tokens).
+- O token de verificação da Meta é trocado por `***` no log de acesso; `/docs` e `/openapi.json` ficam desligados.
+- Nunca cole tokens em código, README, fluxo do n8n ou chat. Se algum vazar, gere outro no painel da Meta.
+
 ## O que está implementado
 
 - Fluxo de atendimento/cadastro pelo WhatsApp, com validações de dados e confirmação.
@@ -28,7 +44,8 @@ Código-fonte original do protótipo RevGás, extraído de `Luchianni.rar`. Esta
 |---|---|
 | Conversa (regras de negócio) | `atendimento.py` (cadastro), `atendimento_pedido.py` (pedido de gás), `atendimento_integrado.py` (decide quem responde), `interpretacao.py`, `validacao.py`, `validacao_pedido.py`, `texto.py` |
 | Modelos e contratos | `modelos.py`, `modelos_pedido.py`, `portas.py`, `portas_pedido.py` |
-| Montagem (o que é real e o que é simulado) | `composicao.py`, `composicao_pedido.py`, `config.py`, `ambiente.py` |
+| Montagem (o que é real e o que é simulado) | `composicao.py`, `composicao_pedido.py` (`montar_loja`), `config.py`, `ambiente.py`, `segredo.py` |
+| Simulador visual | `simulador.py` e `simulador_web/` (HTML, CSS e JS sem dependências externas) |
 | Entrada HTTP | `aplicacao.py` (todas as rotas), `api.py` (só cadastro), `api_pedido.py` (completo), `webhook.py`, `automacao.py`, `erros_http.py` |
 | WhatsApp e infraestrutura | `whatsapp.py`, `whatsapp_cloud.py`, `processador.py`, `deduplicador.py`, `seguranca.py`, `simulacoes*.py` |
 | Armazenamento | `persistencia_sqlite.py` (cadastros e pedidos em disco) |
@@ -71,7 +88,7 @@ Texto de exemplo esquecido no `.env` (`COLE_…`, `defina_…`) faz o servidor r
 python -m unittest discover -v
 ```
 
-Resultado atual: 166 testes passam. Um arquivo só: `python -m unittest -v tests.test_validacao`. Os testes não acessam a internet (o CEP usa `CepsEmMemoria`, e o adaptador do ViaCEP é testado contra um servidor falso local).
+Resultado atual: 182 testes passam. Um arquivo só: `python -m unittest -v tests.test_validacao`. Os testes não acessam a internet (o CEP usa `CepsEmMemoria`, e o adaptador do ViaCEP é testado contra um servidor falso local).
 
 Com o servidor rodando, `python testar_webhook.py` faz um teste de ponta a ponta (rota `/saude`, verificação, assinatura e uma conversa completa).
 

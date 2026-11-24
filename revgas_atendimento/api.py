@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from .ambiente import carregar_arquivo_env
+from .ambiente import variaveis_do_servidor
 from .aplicacao import criar_aplicacao
 from .composicao import montar_atendimento_cadastro
 from .config import Configuracao
@@ -15,6 +15,5 @@ from .config import Configuracao
 
 def criar_app(configuracao: Configuracao | None = None) -> FastAPI:
     if configuracao is None:
-        carregar_arquivo_env()  # .env opcional; variáveis já definidas no ambiente têm prioridade
-        configuracao = Configuracao.do_ambiente()
+        configuracao = Configuracao.do_ambiente(variaveis_do_servidor())  # .env + sistema (sistema ganha)
     return criar_aplicacao(configuracao, montar_atendimento_cadastro(configuracao), "RevGás Atendimento")

@@ -77,7 +77,7 @@ class TesteConfiguracaoDaChave(unittest.TestCase):
     def test_chave_lida_do_ambiente_e_fora_do_repr(self):
         with patch.dict(os.environ, {"WA_APP_SECRET": "s", "WA_VERIFY_TOKEN": "t", "N8N_API_KEY": " k-secreta \n"}, clear=True):
             configuracao = Configuracao.do_ambiente()
-        self.assertEqual(configuracao.chave_api_automacao, "k-secreta")
+        self.assertEqual(configuracao.chave_api_automacao.revelar(), "k-secreta")
         self.assertNotIn("k-secreta", repr(configuracao))
 
     def test_sem_chave_no_ambiente_fica_none(self):

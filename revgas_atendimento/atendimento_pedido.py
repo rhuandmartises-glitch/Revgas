@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 from .endereco import PERGUNTA_CEP, ColetaDeEndereco, ColetorDeEndereco, extrair_cep, pergunta_da_coleta
 from .interpretacao import Intencao, interpretar_confirmacao
-from .modelos import DadoInvalidoError, Entrada, ErroDeDominio, Resposta
+from .modelos import Cadastro, DadoInvalidoError, Entrada, ErroDeDominio, Resposta
 from .modelos_pedido import (
     EtapaPedido,
     FormaPagamento,
@@ -255,7 +255,7 @@ class ServicoDePedido:
             f"{pedido.endereco_entrega}. Se quiser pedir de novo, é só mandar GÁS."
         )
 
-    async def _buscar_cadastro(self, telefone: str):
+    async def _buscar_cadastro(self, telefone: str) -> Cadastro | None:
         return await self._cadastros.buscar_por_telefone(telefone) if self._cadastros else None
 
 

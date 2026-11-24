@@ -25,7 +25,7 @@ class TesteConfiguracaoPorModo(unittest.TestCase):
         with ambiente(N8N_API_KEY="k"):
             configuracao = Configuracao.do_ambiente()
         self.assertFalse(configuracao.webhook_meta_ativo)
-        self.assertEqual(configuracao.chave_api_automacao, "k")
+        self.assertEqual(configuracao.chave_api_automacao.revelar(), "k")
 
     def test_sem_nenhum_modo_falha_cedo(self):
         with ambiente():
