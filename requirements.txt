@@ -1,0 +1,5 @@
+# Versões fixas: as mesmas testadas no .venv. Atualize de propósito, rodando os testes depois.
+fastapi==0.165.0
+pydantic==2.14.4
+starlette==1.10.0
+uvicorn[standard]==0.54.0

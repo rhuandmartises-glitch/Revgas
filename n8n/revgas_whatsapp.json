@@ -1,0 +1,170 @@
+{
+  "name": "RevGás - WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "revgas-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000001",
+      "name": "Meta verifica (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "5d2b7f0a-6c3e-4f61-9b7a-2e1c3d4f5a01"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "c1a2b3c4-0001-4000-8000-000000000001",
+              "leftValue": "={{ $json.query['hub.verify_token'] }}",
+              "rightValue": "TROQUE_PELO_SEU_TOKEN_DE_VERIFICACAO",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000002",
+      "name": "Token confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000003",
+      "name": "Devolve o desafio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": { "responseCode": 403 }
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000004",
+      "name": "Recusa (403)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "revgas-whatsapp",
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000005",
+      "name": "Mensagem da Meta (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 320],
+      "webhookId": "5d2b7f0a-6c3e-4f61-9b7a-2e1c3d4f5a02"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "c1a2b3c4-0002-4000-8000-000000000002",
+              "leftValue": "={{ $json.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from ?? '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000006",
+      "name": "É mensagem de cliente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU-TUNEL.trycloudflare.com/mensagem",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ telefone: $json.body.entry[0].changes[0].value.messages[0].from, texto: $json.body.entry[0].changes[0].value.messages[0].text?.body ?? '', id: $json.body.entry[0].changes[0].value.messages[0].id }) }}",
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000007",
+      "name": "Pergunta ao bot RevGás",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "c1a2b3c4-0003-4000-8000-000000000003",
+              "leftValue": "={{ $json.resposta ?? '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000008",
+      "name": "Tem resposta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v26.0/SEU_PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Mensagem da Meta (POST)').item.json.body.entry[0].changes[0].value.messages[0].from, type: 'text', text: { body: $json.resposta } }) }}",
+        "options": {}
+      },
+      "id": "0b6f1c7e-1a01-4c1e-9a01-000000000009",
+      "name": "Envia no WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 280]
+    }
+  ],
+  "connections": {
+    "Meta verifica (GET)": { "main": [[{ "node": "Token confere?", "type": "main", "index": 0 }]] },
+    "Token confere?": {
+      "main": [
+        [{ "node": "Devolve o desafio", "type": "main", "index": 0 }],
+        [{ "node": "Recusa (403)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mensagem da Meta (POST)": { "main": [[{ "node": "É mensagem de cliente?", "type": "main", "index": 0 }]] },
+    "É mensagem de cliente?": { "main": [[{ "node": "Pergunta ao bot RevGás", "type": "main", "index": 0 }], []] },
+    "Pergunta ao bot RevGás": { "main": [[{ "node": "Tem resposta?", "type": "main", "index": 0 }]] },
+    "Tem resposta?": { "main": [[{ "node": "Envia no WhatsApp", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

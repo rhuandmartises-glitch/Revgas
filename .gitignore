@@ -1,0 +1,30 @@
+# Python e ambientes locais
+.venv/
+.venv_*/
+venv/
+# Banco com cadastros e pedidos (dados pessoais): inclui os arquivos -journal/-wal do SQLite
+dados/
+# JDK baixado dentro da pasta (não faz parte deste projeto Python)
+oracleJdk-27/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Segredos, credenciais e bancos locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs e saídas locais
+*.log
+.DS_Store
+Thumbs.db
