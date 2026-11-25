@@ -20,7 +20,7 @@ def montar_whatsapp(configuracao: Configuracao) -> WhatsAppGateway:
     """Cloud API de verdade com WA_ACCESS_TOKEN + WA_PHONE_NUMBER_ID; senão, modo console."""
     credenciais = configuracao.credenciais_whatsapp
     if credenciais is None:
-        if configuracao.webhook_meta_ativo:  # só avisa quando alguém realmente usaria o envio direto
+        if configuracao.webhook_meta_ativo:  # só avisa quando o webhook direto está ligado e usaria o envio
             logger.warning(
                 "MODO CONSOLE: sem WA_ACCESS_TOKEN/WA_PHONE_NUMBER_ID, as respostas do webhook direto "
                 "só aparecem neste terminal e nada é enviado ao WhatsApp."

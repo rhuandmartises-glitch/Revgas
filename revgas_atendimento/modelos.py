@@ -42,7 +42,7 @@ class Cadastro:
     """Único dado pessoal guardado (além do telefone que identifica o cliente no WhatsApp).
 
     `telefone_contato` é um número à parte (por exemplo, fixo ou de outra pessoa) só para
-    contato sobre a entrega — não precisa ser o mesmo telefone que está mandando a mensagem.
+    contato sobre a entrega. Não precisa ser o mesmo telefone que está mandando a mensagem.
     """
 
     telefone: str = field(repr=False)

@@ -14,13 +14,14 @@ from types import MappingProxyType
 
 from .modelos import DadoInvalidoError
 from .modelos_pedido import LIMITE_DE_BOTIJOES_POR_PEDIDO, MOMENTO_DO_PAGAMENTO, FormaPagamento, TipoBotijao
-from .texto import comando, palavras
+from .intencoes import dispensa_troco
+from .texto import palavras
 
 PERGUNTA_PAGAMENTO = (
     f"Como prefere pagar? O pagamento é {MOMENTO_DO_PAGAMENTO}: Pix, dinheiro, cartão de débito "
     "ou cartão de crédito."
 )
-PERGUNTA_TROCO = "Vai precisar de troco? Se sim, me diz para quanto (ex.: troco para 100). Se não, responda NÃO."
+PERGUNTA_TROCO = "Vai precisar de troco? Se sim, me diz para quanto (ex.: troco para 100)."
 
 _ALIAS_PAGAMENTO: MappingProxyType[str, FormaPagamento] = MappingProxyType({
     "pix": FormaPagamento.PIX,
@@ -29,7 +30,6 @@ _ALIAS_PAGAMENTO: MappingProxyType[str, FormaPagamento] = MappingProxyType({
     "credito": FormaPagamento.CREDITO,
 })
 _PALAVRAS_CARTAO = frozenset({"cartao", "maquininha", "maquina"})
-_SEM_TROCO = frozenset({"nao", "n", "sem troco", "nao precisa", "nao preciso", "trocado", "dinheiro certo", "certinho"})
 _TROCO_MAXIMO = Decimal("1000")
 
 # MappingProxyType: visão somente leitura, ninguém de fora altera esse mapa por engano.
@@ -106,7 +106,7 @@ def validar_troco(texto: str) -> Decimal | None:
     """None quando não precisa de troco ("não", "sem troco"); senão, o valor da nota (ex.: 100)."""
     encontrado = _PADRAO_VALOR.search(texto)
     if encontrado is None:
-        if comando(texto) in _SEM_TROCO or "nao" in palavras(texto):
+        if dispensa_troco(texto) or "nao" in palavras(texto):
             return None
         raise DadoInvalidoError(f"Não entendi. {PERGUNTA_TROCO}")
     try:

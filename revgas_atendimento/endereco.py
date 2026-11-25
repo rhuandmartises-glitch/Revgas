@@ -6,7 +6,8 @@ Conversa:
 Desvios:
 - "não sei" o CEP, consulta fora do ar ou CEP da cidade toda (sem rua): pede o endereço digitado
   (rua, número e bairro), que precisa ter o número da casa.
-- CEP inexistente ou com formato errado: pede de novo, lembrando que dá para responder NÃO SEI.
+- CEP inexistente ou com formato errado: pede de novo, lembrando que tudo bem não saber.
+"Não sei" aceita as variações do dia a dia ("sei lá", "não lembro", "esqueci"): veja intencoes.py.
 
 Tudo aqui é independente de WhatsApp e de banco: recebe texto, devolve a próxima mensagem.
 """
@@ -17,22 +18,26 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from .intencoes import nao_sabe
 from .modelos import DadoInvalidoError, IntegracaoError
-from .texto import comando, normalizar_espacos
+from .texto import normalizar_espacos
 
 if TYPE_CHECKING:
     from .portas import ConsultaDeCep
 
-PERGUNTA_CEP = "Qual é o CEP? São 8 números, ex.: 01001-000. Se não souber, responda NÃO SEI."
+PERGUNTA_CEP = "Qual é o CEP? Ex.: 01001-000. Se não souber, sem problema, é só me falar."
 PERGUNTA_ENDERECO_DIGITADO = "Me manda o endereço completo: rua, número e bairro."
 
 _PADRAO_CEP = re.compile(r"(?<!\d)(\d{5})[-.\s]?(\d{3})(?!\d)")
 _PADRAO_NUMERO = re.compile(
     r"^(?:n(?:[º°o]|umero)?\.?\s*)?(\d{1,6}[a-z]?)(?![\d])\s*[,.\-–]?\s*(.*)$", re.IGNORECASE
 )
-_SEM_NUMERO = re.compile(r"^(?:s\s*/\s*n|sn|sem\s+n(?:u|ú)mero)\b\s*[,.\-–]?\s*(.*)$", re.IGNORECASE)
+# Casa sem número: "s/n", "sn", "sem número", "não tem número", "não tem", "não possui".
+_SEM_NUMERO = re.compile(
+    r"^(?:s\s*/\s*n|sn|sem\s+n(?:u|ú)mero|n(?:a|ã)o\s+(?:tem|possui)(?:\s+n(?:u|ú)mero)?)\b\s*[,.\-–]?\s*(.*)$",
+    re.IGNORECASE,
+)
 _SEM_NUMERO_NO_MEIO = re.compile(r"\bs\s*/\s*n\b|\bsem\s+n(?:u|ú)mero\b", re.IGNORECASE)
-_RESPOSTAS_NAO_SEI =frozenset({"nao sei", "sei nao", "nao lembro", "nao tenho", "nao sei o cep"})
 _TAMANHO_MAXIMO_COMPLEMENTO = 60
 
 
@@ -90,7 +95,7 @@ def validar_numero(texto: str) -> tuple[str, str]:
     if encontrado is None:
         raise DadoInvalidoError(
             "Me manda o número da casa, ex.: 120. Se tiver complemento, pode mandar junto: 120 apto 3. "
-            "Se não tiver número, responda S/N."
+            "Se a casa não tiver número, é só dizer."
         )
     numero = "s/n" if sem_numero else encontrado.group(1).upper()
     complemento = encontrado.group(1 if sem_numero else 2).strip(" ,.-–")
@@ -169,12 +174,12 @@ class ColetorDeEndereco:
             return PassoDaColeta(str(erro), coleta)
 
     async def _receber_cep(self, texto: str) -> PassoDaColeta:
-        if comando(texto) in _RESPOSTAS_NAO_SEI:
+        if nao_sabe(texto):
             return PassoDaColeta(f"Sem problema! {PERGUNTA_ENDERECO_DIGITADO}", ColetaDeEndereco(EtapaEndereco.DIGITADO))
         cep = extrair_cep(texto)
         if cep is None or len(set(cep)) == 1:
             raise DadoInvalidoError(
-                "Não reconheci o CEP. Ele tem 8 números, ex.: 01001-000. Se não souber, responda NÃO SEI."
+                "Não reconheci o CEP. Ele tem 8 números, ex.: 01001-000. Se não souber, me fala."
             )
         digitado = ColetaDeEndereco(EtapaEndereco.DIGITADO, cep=cep)
         if self._consulta is None:
@@ -187,7 +192,7 @@ class ColetorDeEndereco:
             )
         if achado is None:
             raise DadoInvalidoError(
-                f"Não encontrei o CEP {formatar_cep(cep)}. Confere e me manda de novo, ou responda NÃO SEI."
+                f"Não encontrei o CEP {formatar_cep(cep)}. Confere e me manda de novo, ou me avisa se não souber."
             )
         if not achado.logradouro:  # CEP geral da cidade: não identifica a rua
             return PassoDaColeta(

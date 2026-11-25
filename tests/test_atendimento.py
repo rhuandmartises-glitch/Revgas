@@ -86,7 +86,8 @@ class TesteFluxoDeCadastro(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Achei: Praça da Sé - Sé, São Paulo/SP", achado.texto)
         resumo = await conversa.texto("120")
         self.assertEqual(resumo.botoes, ())  # sem botões: o cliente responde em texto
-        self.assertIn("SIM", resumo.texto)
+        self.assertIn("Está tudo certo?", resumo.texto)
+        self.assertNotIn("SIM", resumo.texto)  # não obriga o cliente a digitar uma palavra exata
         self.assertIn(TELEFONE_CONTATO_FORMATADO, resumo.texto)
 
         await conversa.botao(BOTAO_CONFIRMAR)

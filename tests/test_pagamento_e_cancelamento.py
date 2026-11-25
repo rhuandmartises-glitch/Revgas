@@ -182,7 +182,7 @@ class TesteFluxoDoPagamento(unittest.IsolatedAsyncioTestCase):
 class TesteCancelamentoDepoisDeConfirmar(unittest.IsolatedAsyncioTestCase):
     async def test_confirmacao_avisa_o_prazo(self):
         confirmado = await Loja().pedido_confirmado()
-        self.assertIn("Se precisar cancelar, mande CANCELAR em até 5 minutos", confirmado.texto)
+        self.assertIn("dá para cancelar por aqui em até 5 minutos", confirmado.texto)
 
     async def test_cancela_dentro_do_prazo(self):
         loja = Loja()
@@ -223,7 +223,7 @@ class TesteCancelamentoDepoisDeConfirmar(unittest.IsolatedAsyncioTestCase):
     async def test_prazo_zero_desliga_o_cancelamento_pelo_whatsapp(self):
         loja = Loja(prazo=timedelta(0))
         confirmado = await loja.pedido_confirmado()
-        self.assertNotIn("CANCELAR", confirmado.texto)
+        self.assertNotIn("cancelar", confirmado.texto.lower())
         loja.relogio.avancar(seconds=10)
         resposta = await loja.texto("cancelar")
         self.assertIn("o cancelamento não é feito por aqui", resposta.texto)

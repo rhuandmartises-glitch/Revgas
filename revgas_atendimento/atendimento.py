@@ -18,16 +18,13 @@ from .modelos import (
     Sessao,
 )
 from .portas import ConsultaDeCep, RepositorioDeCadastros, RepositorioDeSessoes
-from .texto import comando
+from .intencoes import quer_atualizar_cadastro, quer_cancelar
 from .validacao import formatar_telefone, validar_nome, validar_telefone
 
 # A conversa não envia mais botões. Estes ids continuam aceitos só para não quebrar quem
 # tocar em um botão de uma mensagem antiga, enviada antes desta versão.
 BOTAO_CONFIRMAR = "CONFIRMAR"
 BOTAO_CORRIGIR = "CORRIGIR"
-
-_COMANDOS_CANCELAR = frozenset({"cancelar"})
-_COMANDOS_ATUALIZAR = frozenset({"atualizar"})
 
 _PERGUNTAS = {
     Etapa.NOME: "Qual é o seu nome completo?",
@@ -38,15 +35,15 @@ _PERGUNTAS = {
 # Texto sobre uso dos dados: revise com o jurídico/DPO da RevGás (LGPD) antes de publicar.
 _AVISO_DE_USO = (
     "Vou pedir só 3 dados: nome, telefone de contato e endereço, usados apenas para o seu "
-    "cadastro. Para parar a qualquer momento, envie CANCELAR."
+    "cadastro. Se quiser parar no meio, é só avisar."
 )
 MENSAGEM_BOAS_VINDAS = f"Olá! Eu sou o atendimento da RevGás. {_AVISO_DE_USO}\n\n{_PERGUNTAS[Etapa.NOME]}"
 MENSAGEM_ATUALIZACAO = f"Vamos atualizar seus dados. {_AVISO_DE_USO}\n\n{_PERGUNTAS[Etapa.NOME]}"
-MENSAGEM_CANCELADO = "Tudo bem, cancelei e não guardei nenhum dado. Quando quiser, é só mandar uma mensagem."
+MENSAGEM_CANCELADO = "Tudo bem, parei por aqui e não guardei nenhum dado. Quando quiser, é só mandar uma mensagem."
 MENSAGEM_FALHA_TECNICA = "Tive um problema técnico e não consegui concluir agora. Tente de novo em alguns minutos."
 MENSAGEM_TROCAR_ENDERECO = (
-    "Sem problema! Me manda o CEP do endereço certo (ex.: 01001-000). Se não souber, responda NÃO SEI. "
-    "Se quiser refazer tudo do começo, digite REFAZER."
+    "Sem problema! Me manda o CEP do endereço certo (ex.: 01001-000). Se não souber o CEP, me fala "
+    "que eu pego o endereço de outro jeito. E se quiser começar tudo de novo, é só dizer."
 )
 
 
@@ -65,7 +62,8 @@ class ServicoDeAtendimento:
         sessao = await self._sessoes.obter(telefone)
         if sessao is None:
             return await self._iniciar(telefone, entrada)
-        if _comando(entrada) in _COMANDOS_CANCELAR:
+        # Na etapa do nome, só a frase inteira cancela: há sobrenomes como "Cancela".
+        if quer_cancelar(entrada.texto, so_frase_exata=sessao.etapa is Etapa.NOME):
             await self._sessoes.remover(telefone)
             return Resposta(MENSAGEM_CANCELADO)
         if sessao.etapa is Etapa.CONFIRMACAO:
@@ -74,10 +72,10 @@ class ServicoDeAtendimento:
 
     async def _iniciar(self, telefone: str, entrada: Entrada) -> Resposta:
         cadastro = await self._cadastros.buscar_por_telefone(telefone)
-        if cadastro is not None and _comando(entrada) not in _COMANDOS_ATUALIZAR:
+        if cadastro is not None and not quer_atualizar_cadastro(entrada.texto):
             return Resposta(
                 f"Olá, {_primeiro_nome(cadastro.nome)}! Seu cadastro já está completo. "
-                "Se quiser pedir gás, é só me dizer. Para atualizar seus dados, envie ATUALIZAR."
+                "Se quiser pedir gás, é só me dizer. E se precisar mudar algum dado, me avisa."
             )
         await self._sessoes.salvar(Sessao(telefone, Etapa.NOME))
         return Resposta(MENSAGEM_ATUALIZACAO if cadastro else MENSAGEM_BOAS_VINDAS)
@@ -148,8 +146,7 @@ def _resumo(sessao: Sessao) -> str:
     return (
         f"Confere seus dados?\nNome: {sessao.nome}\nTelefone: {formatar_telefone(sessao.telefone_contato or '')}\n"
         f"Endereço: {sessao.endereco}\n\n"
-        "Se estiver tudo certo, é só responder SIM. "
-        "Se o endereço mudou, me manda o CEP novo que eu atualizo."
+        "Está tudo certo? Se o endereço mudou, me manda o CEP novo que eu atualizo."
     )
 
 
@@ -157,11 +154,6 @@ def _montar_cadastro(sessao: Sessao) -> Cadastro:
     if sessao.nome is None or sessao.telefone_contato is None or sessao.endereco is None:
         raise ErroDeDominio("Sessão incompleta ao confirmar o cadastro.")
     return Cadastro(sessao.telefone, sessao.nome, sessao.telefone_contato, sessao.endereco)
-
-
-def _comando(entrada: Entrada) -> str:
-    """Minúsculo e sem pontuação: "Cancelar!" e "atualizar." também valem como comando."""
-    return comando(entrada.texto)
 
 
 def _primeiro_nome(nome: str) -> str:

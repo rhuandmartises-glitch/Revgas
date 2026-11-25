@@ -6,13 +6,13 @@ forma de pagamento -> troco (só em dinheiro) -> confirmação.
 Conversa só em texto livre, sem botões: o cliente responde como responderia a um atendente, e o
 serviço entende as variações mais comuns (abreviações, sinônimos, com ou sem acento).
 
-Depois de confirmado, o pedido pode ser cancelado pelo próprio cliente (mensagem CANCELAR) dentro
-do prazo de cancelamento. Passado o prazo, o bot orienta a falar com a loja.
+Depois de confirmado, o próprio cliente pode cancelar o pedido ("cancela", "desisti", "não quero mais"...)
+dentro do prazo de cancelamento. Passado o prazo, o bot orienta a falar com a loja.
 
 O ponto de entrada público é `ServicoDePedido.atender`, com a mesma assinatura de
-`ServicoDeAtendimento.atender`, exceto que devolve None quando a mensagem não tem nada a ver
-com pedido de gás — é esse None que permite a quem orquestra os dois fluxos (veja
-atendimento_integrado.py) decidir cair de volta no atendimento de cadastro de sempre.
+`ServicoDeAtendimento.atender`. A diferença: devolve None quando a mensagem não tem a ver com
+pedido de gás. Com esse None, quem orquestra os dois fluxos (atendimento_integrado.py) passa a
+mensagem para o atendimento de cadastro.
 """
 from __future__ import annotations
 
@@ -32,8 +32,9 @@ from .modelos_pedido import (
     descrever_pagamento,
 )
 from .portas import ConsultaDeCep, RepositorioDeCadastros, RepositorioDeSessoes
+from .intencoes import quer_cancelar
 from .portas_pedido import RepositorioDePedidos
-from .texto import comando, palavras
+from .texto import palavras
 from .validacao import formatar_telefone
 from .validacao_pedido import (
     PERGUNTA_PAGAMENTO,
@@ -47,9 +48,8 @@ from .validacao_pedido import (
 
 PRAZO_CANCELAMENTO_PADRAO = timedelta(minutes=5)
 
-_PALAVRAS_CANCELAR = frozenset({"cancelar", "cancela", "cancele", "cancelo", "cancelamento"})
-_COMANDOS_DESISTIR = frozenset({"deixa pra la", "deixa para la", "esquece"})  # só no meio do pedido
-_PALAVRAS_GATILHO = frozenset({"gas", "pedido"})  # comparadas já sem acento (ver texto.palavras)
+# Palavras que começam um pedido, comparadas sem acento (ver texto.palavras).
+_PALAVRAS_GATILHO = frozenset({"gas", "pedido", "pedir", "botijao", "botijoes", "bujao", "bujoes", "encomendar"})
 
 MENSAGEM_PERGUNTA_TIPO = (
     "Qual botijão você precisa: P13 (13kg, o mais comum em casa), P20 (20kg) ou "
@@ -58,17 +58,17 @@ MENSAGEM_PERGUNTA_TIPO = (
 MENSAGEM_PERGUNTA_QUANTIDADE = "Perfeito! E quantos botijões desse você vai querer?"
 MENSAGEM_PERGUNTA_ENDERECO = f"Combinado! Agora o endereço de entrega. {PERGUNTA_CEP}"
 MENSAGEM_TROCAR_ENDERECO = (
-    "Sem problema! Me manda o CEP do endereço certo da entrega (ex.: 01001-000). "
-    "Se não souber, responda NÃO SEI. Se quiser refazer o pedido do começo, digite REFAZER."
+    "Sem problema! Me manda o CEP do endereço certo da entrega (ex.: 01001-000). Se não souber o CEP, "
+    "me fala que eu pego o endereço de outro jeito. E se quiser refazer o pedido do começo, é só dizer."
 )
 MENSAGEM_CANCELADO = "Sem problema, cancelei seu pedido. Quando quiser pedir gás de novo, é só me chamar."
 MENSAGEM_SEM_PEDIDO_PARA_CANCELAR = (
-    "Não encontrei nenhum pedido seu para cancelar. Se quiser pedir gás, é só mandar GÁS."
+    "Não encontrei nenhum pedido seu para cancelar. Se quiser pedir gás, é só me falar."
 )
 
 
 def eh_pedido_de_gas(entrada: Entrada) -> bool:
-    """Reconhece a intenção de iniciar um pedido (ex.: "gás", "quero pedir gás", "novo pedido").
+    """Reconhece a intenção de iniciar um pedido ("gás", "quero um botijão", "novo pedido", "bujão").
 
     Usado tanto por ServicoDePedido quanto por quem orquestra os fluxos (atendimento_integrado.py).
     """
@@ -76,8 +76,8 @@ def eh_pedido_de_gas(entrada: Entrada) -> bool:
 
 
 def eh_cancelamento(entrada: Entrada) -> bool:
-    """ "cancelar", "cancela meu pedido", "quero cancelar o pedido"."""
-    return bool(set(palavras(entrada.texto)) & _PALAVRAS_CANCELAR)
+    """ "cancela", "quero cancelar o pedido", "desisti", "não quero mais", "deixa pra lá" (ver intencoes.py)."""
+    return quer_cancelar(entrada.texto)
 
 
 def _agora_utc() -> datetime:
@@ -87,7 +87,7 @@ def _agora_utc() -> datetime:
 class ServicoDePedido:
     """Só expõe duas operações para quem está fora deste módulo: `atender` (a conversa em si) e
     `tem_sessao_ativa` (uma checagem booleana, usada por quem decide entre cadastro e pedido).
-    O estado da sessão (`SessaoPedido`) nunca sai daqui — só o texto da resposta."""
+    O estado da sessão (`SessaoPedido`) nunca sai daqui; para fora vai só o texto da resposta."""
 
     def __init__(
         self,
@@ -131,7 +131,7 @@ class ServicoDePedido:
         return Resposta(f"Opa, vamos pedir seu gás! {MENSAGEM_PERGUNTA_TIPO}")
 
     async def _continuar(self, telefone: str, entrada: Entrada, sessao: SessaoPedido) -> Resposta:
-        if eh_cancelamento(entrada) or comando(entrada.texto) in _COMANDOS_DESISTIR:
+        if eh_cancelamento(entrada):
             await self._sessoes.remover(telefone)
             return Resposta(MENSAGEM_CANCELADO)
         if sessao.etapa is EtapaPedido.CONFIRMACAO:
@@ -222,7 +222,7 @@ class ServicoDePedido:
         pedido = await self._pedidos.salvar(_montar_pedido(sessao, self._relogio()))
         await self._sessoes.remover(sessao.telefone)
         aviso_cancelamento = (
-            f" Se precisar cancelar, mande CANCELAR em até {_minutos(self._prazo_cancelamento)}."
+            f" Se mudar de ideia, dá para cancelar por aqui em até {_minutos(self._prazo_cancelamento)}."
             if self._prazo_cancelamento > timedelta(0)
             else ""
         )
@@ -252,7 +252,7 @@ class ServicoDePedido:
             return Resposta(MENSAGEM_SEM_PEDIDO_PARA_CANCELAR)  # cancelado em paralelo, por exemplo
         return Resposta(
             f"Pedido cancelado: {pedido.quantidade}x {pedido.tipo_botijao.descricao}, que ia para "
-            f"{pedido.endereco_entrega}. Se quiser pedir de novo, é só mandar GÁS."
+            f"{pedido.endereco_entrega}. Se quiser pedir de novo, é só me chamar."
         )
 
     async def _buscar_cadastro(self, telefone: str) -> Cadastro | None:
@@ -298,8 +298,8 @@ def _resumo(sessao: SessaoPedido) -> str:
     linhas.append(f"Pagamento: {descrever_pagamento(sessao.forma_pagamento, sessao.troco_para)}")
     return (
         "\n".join(linhas)
-        + "\n\nTá tudo certo? É só responder SIM. Se o endereço mudou, me manda o CEP novo; "
-        "para trocar o pagamento, é só dizer a forma (ex.: Pix)."
+        + "\n\nTá tudo certo? Se o endereço mudou, me manda o CEP novo. Para trocar o pagamento, "
+        "é só dizer a forma (ex.: Pix)."
     )
 
 

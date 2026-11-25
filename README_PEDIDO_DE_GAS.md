@@ -1,104 +1,85 @@
-# Pedido de gás — adição ao protótipo RevGás
+# Pedido de gás
 
-Esta função foi adicionada **sem alterar nenhum arquivo já existente do projeto**. Tudo é novo,
-em módulos separados, que se conectam aos originais só por import.
+Como funciona a conversa do pedido de botijão. O resto do projeto está no [README.md](README.md).
 
-## Arquivos novos
+## Arquivos
 
-Dentro de `revgas_atendimento/`:
-- `modelos_pedido.py` — `Pedido`, `SessaoPedido`, `TipoBotijao` (P13/P20/P45), `EtapaPedido`.
-- `portas_pedido.py` — contrato `RepositorioDePedidos`.
-- `validacao_pedido.py` — valida tipo de botijão e quantidade (reaproveita `validar_endereco` de `validacao.py`).
-- `simulacoes_pedido.py` — `PedidosEmMemoria`, repositório de pedidos em memória (para demo/testes).
-- `atendimento_pedido.py` — `ServicoDePedido`: a conversa do pedido em si (pergunta botijão → quantidade → endereço → confirmação).
-- `atendimento_integrado.py` — `ServicoDeAtendimentoIntegrado`: decide, a cada mensagem, se quem responde é o cadastro ou o pedido.
-- `composicao_pedido.py` — monta tudo (`montar_servico_de_webhook_com_pedido_de_gas`), nos mesmos moldes de `composicao.py`.
-- `api_pedido.py` — app FastAPI alternativo (`criar_app_com_pedido_de_gas`), nos mesmos moldes de `api.py`.
+Em `revgas_atendimento/`:
+- `modelos_pedido.py`: `Pedido`, `SessaoPedido`, `TipoBotijao` (P13, P20, P45), `FormaPagamento`, `StatusPedido` e `EtapaPedido`.
+- `portas_pedido.py`: o contrato `RepositorioDePedidos`.
+- `validacao_pedido.py`: valida botijão, quantidade, forma de pagamento e troco. O endereço é validado em `endereco.py`, pelo CEP, igual ao cadastro.
+- `atendimento_pedido.py`: `ServicoDePedido`, a conversa do pedido.
+- `atendimento_integrado.py`: `ServicoDeAtendimentoIntegrado`, que decide a cada mensagem se quem responde é o cadastro ou o pedido.
+- `composicao_pedido.py`: monta o atendimento completo (`montar_loja`).
+- `api_pedido.py`: o servidor com cadastro e pedido (`criar_app_com_pedido_de_gas`).
+- `persistencia_sqlite.py`: grava os pedidos (`PedidosSqlite`). Nos testes e nas demos, `PedidosEmMemoria` (`simulacoes_pedido.py`) faz esse papel.
 
 Fora do pacote:
-- `tests/test_pedido.py` — testes do pedido e da integração com o cadastro.
-- `demo_pedido.py` (na raiz) — demonstração local, sem WhatsApp/ERP.
+- `tests/test_pedido.py` e `tests/test_pagamento_e_cancelamento.py`: testes do pedido.
+- `demo_pedido.py`, na raiz: demonstração local, sem WhatsApp.
 
-## Como funciona a conversa
+## A conversa
 
-A conversa é **só em texto livre, sem nenhum botão** — pra soar como uma conversa de verdade
-com um atendente, não um menu de opções. O cliente pode pedir gás a qualquer momento enviando
-uma mensagem com a palavra **"gás"** (ou "pedido", com ou sem acento). O bot então pergunta,
-nessa ordem:
+A conversa é só em texto, sem botões, para parecer com a de um atendente. O cliente começa um pedido a qualquer momento mandando uma mensagem com "gás" ou "pedido", com ou sem acento. O bot pergunta, nesta ordem:
 
-1. **Tipo de botijão** — o cliente escreve como quiser: "P13", "13kg", "o pequeno", "residencial"
-   (tudo isso vira P13); "P20", "médio"; "P45", "o grande", "comercial". Funciona mesmo dentro de
-   uma frase inteira, tipo "quero um botijão P13, o pequeno mesmo".
-2. **Quantidade** — de 1 a 6 botijões, em número ("2") ou por extenso ("duas, por favor").
-3. **Endereço de entrega** — pelo CEP, como no cadastro: o bot acha a rua e pergunta só o
-   número e o complemento. Sem CEP ("não sei"), aceita o endereço digitado com número.
-4. **Forma de pagamento** — Pix, dinheiro, cartão de débito ou de crédito, na entrega. Em
-   dinheiro, o bot pergunta o troco ("troco para 100" ou "não").
-5. **Confirmação** — um resumo do pedido (com o pagamento), e o cliente responde com algo como
-   "sim", "pode mandar", "confirmo" ou "não, tá errado" / "quero mudar". Para trocar o
-   pagamento, basta dizer a forma nova ("prefiro pagar no Pix").
+1. Botijão. O cliente escreve como quiser: "P13", "13kg", "o pequeno" e "residencial" viram P13; "P20" e "médio" viram P20; "P45", "o grande" e "comercial" viram P45. Funciona dentro de uma frase ("quero um botijão P13, o pequeno mesmo").
+2. Quantidade, de 1 a 6, em número ("2") ou por extenso ("duas, por favor").
+3. Endereço de entrega, pelo CEP. O bot acha a rua e pergunta o número e o complemento. Se o cliente não souber o CEP ("não sei"), ele digita o endereço com o número.
+4. Forma de pagamento na entrega: Pix, dinheiro, cartão de débito ou de crédito. Em dinheiro, o bot pergunta o troco ("troco para 100" ou "não").
+5. Confirmação. O bot mostra o resumo, e o cliente responde "sim", "pode mandar", "confirmo", ou "não, tá errado". Para trocar o pagamento, basta dizer a forma nova ("prefiro pagar no Pix").
 
-### Cancelar depois de confirmar
+### Cliente já cadastrado
 
-A confirmação avisa o prazo: "Se precisar cancelar, mande CANCELAR em até 5 minutos". Dentro
-do prazo, CANCELAR cancela o último pedido (status `CANCELADO` no banco). Depois do prazo, o
-bot explica que o pedido já pode estar a caminho e orienta a falar com a loja. O prazo é
-configurável em `REVGAS_PRAZO_CANCELAMENTO_MIN` (0 desliga).
+Se o número já tem cadastro, o bot não pergunta o endereço. Depois do botijão e da quantidade, mostra onde vai entregar e pergunta o pagamento. No resumo aparecem nome, telefone e endereço do cadastro.
 
-### Cliente já cadastrado: só confirma
+Se o endereço mudou, o cliente manda o CEP novo na confirmação ("01310-100"), informa o número e confere o resumo atualizado. "Não" faz o bot pedir o CEP do endereço certo. "Refazer" ou "começar de novo" recomeça o pedido.
 
-Se o cliente já tem cadastro, o pedido **não pergunta o endereço de novo**. Depois do botijão e
-da quantidade, o bot mostra nome, telefone e endereço do cadastro e o cliente só responde
-"sim". Se o endereço mudou, ele manda o CEP novo ali mesmo (ex.: "01310-100"), informa o
-número e o bot mostra o resumo atualizado para confirmar. Responder "não" faz o bot pedir o CEP
-do endereço certo; "REFAZER" recomeça o pedido do zero.
+O fim do cadastro funciona do mesmo jeito: o cliente confirma com "sim" ou manda um CEP novo para trocar só o endereço.
 
-O mesmo vale no fim do cadastro: o resumo mostra nome, telefone e endereço; o cliente confirma
-com "sim" ou manda um CEP novo para trocar só o endereço. Nenhuma das duas conversas usa
-botões.
+### Cancelar
 
-Antes de confirmar, a qualquer momento o cliente pode enviar algo como `CANCELAR` (ou "deixa pra
-lá", "esquece") para descartar o pedido em andamento.
+Antes de confirmar, qualquer jeito de desistir ("cancela", "deixa pra lá", "esquece", "não quero mais") descarta o pedido em andamento. A lista completa está em `intencoes.py`.
 
-Se o cliente já estiver no meio do cadastro (nome/telefone/endereço) quando digitar "gás", o
-cadastro **continua normalmente** — a palavra "gás" não interrompe um fluxo já em andamento.
-Isso é decidido pelo `ServicoDeAtendimentoIntegrado`, olhando se já existe uma sessão ativa de
-cadastro ou de pedido antes de decidir para quem a mensagem vai.
+Depois de confirmar, a mensagem avisa o prazo: "Se mudar de ideia, dá para cancelar por aqui em até 5 minutos". Dentro do prazo, o mesmo tipo de mensagem cancela o último pedido, e o status no banco passa a `CANCELADO`. Depois do prazo, o bot explica que o pedido pode já estar a caminho e pede para o cliente falar com a loja. O prazo fica em `REVGAS_PRAZO_CANCELAMENTO_MIN` (0 desliga).
+
+### Pedido no meio do cadastro
+
+Se o cliente estiver no meio do cadastro e mandar "gás", o cadastro continua: a palavra não interrompe uma conversa em andamento. Quem decide é o `ServicoDeAtendimentoIntegrado`, que olha se já existe uma sessão aberta de cadastro ou de pedido antes de escolher quem responde.
 
 ## Como usar
 
-### Conversar de verdade, digitando (recomendado para testar como cliente)
+### Conversar pelo terminal
+
 ```bash
 python conversar.py
 ```
-Abre uma conversa interativa no terminal: você digita como se fosse o cliente mandando mensagem
-no WhatsApp, e vê a resposta do bot na hora. Funciona tanto para o cadastro ("oi" pra começar)
-quanto para o pedido de gás ("gás" ou "pedido" pra começar), na mesma sessão. Pra sair: "sair".
 
-### Demonstração automática (roteiro fixo, sem digitar nada)
+Você digita como se fosse o cliente e vê a resposta do bot na hora. Funciona para o cadastro ("oi") e para o pedido ("gás"). Para sair, digite "sair". Para uma tela parecida com o WhatsApp, use o simulador (`python -m revgas_atendimento.simulador`).
+
+### Demonstração com roteiro fixo
+
 ```bash
 python demo_pedido.py
 ```
 
 ### Testes
+
 ```bash
 python -m unittest -v tests.test_pedido
 ```
+
 Todos os testes: `python -m unittest discover -v`.
 
-### Servidor HTTP com a nova função
-No lugar de `revgas_atendimento.api:criar_app`, use:
+### Servidor
+
 ```bash
 uvicorn revgas_atendimento.api_pedido:criar_app_com_pedido_de_gas --factory --host 127.0.0.1 --port 8000
 ```
-`api.py` (o entry point original) não foi tocado e continua funcionando exatamente como antes,
-sem a função de pedido.
 
-## Limitações (mesmas do projeto original)
+O `api.py` sobe um servidor só com o cadastro, sem o pedido.
 
-- Os pedidos ficam em `PedidosEmMemoria`: são perdidos ao reiniciar o servidor, do mesmo jeito
-  que os cadastros em `CadastrosEmMemoria`.
-- Esta adição usa `WhatsAppEmMemoria` (modo console), igual ao `api.py` original — nenhuma
-  mensagem é enviada de verdade pelo WhatsApp.
-- Em produção, troque `PedidosEmMemoria` por uma tabela/sistema de logística real, seguindo o
-  mesmo padrão de substituição já descrito no `README.md` original para cadastros e sessões.
+## Limites
+
+- Os pedidos ficam no SQLite (`dados/revgas.sqlite3`). A conversa em andamento fica em memória e se perde quando o servidor reinicia.
+- O bot não sabe o preço dos botijões. Por isso não confere se o troco é maior que o total; só aceita notas de R$ 1 a R$ 1.000.
+- Quando o cliente cancela, ninguém da loja é avisado. O cancelamento só fica gravado no banco.

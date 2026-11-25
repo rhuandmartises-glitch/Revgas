@@ -3,8 +3,8 @@
 Como usar, na raiz do projeto: python conversar.py
 Digite normalmente, como mandaria uma mensagem de WhatsApp. Pra sair: "sair" (ou Ctrl+C).
 
-Funciona com cadastro e com pedido de gás, com a mesma lógica usada no webhook de verdade —
-só que sem precisar de WhatsApp, servidor ou credencial nenhuma.
+Funciona com cadastro e com pedido de gás, com a mesma lógica do webhook de verdade, mas sem
+WhatsApp, sem servidor e sem credenciais.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ async def conversar() -> None:
     # Consulta o CEP no ViaCEP de verdade (sem internet, pede o endereço digitado). Nada vai para o disco.
     atendimento = montar_atendimento_com_pedido_de_gas(Configuracao(consultar_cep_online=True))
 
-    print("=== RevGás — conversa de teste ===")
+    print("=== RevGás: conversa de teste ===")
     print("Dica: mande 'oi' pra começar o cadastro, ou 'gás'/'pedido' pra pedir um botijão.")
     print("Pra sair: 'sair'.\n")
 

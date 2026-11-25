@@ -60,7 +60,7 @@ def validar_telefone(texto: str) -> str:
     if ddd not in DDDS_VALIDOS:
         raise DadoInvalidoError(f"O DDD {digitos[:2]} não existe. Confere e me manda de novo, {_EXEMPLO_TELEFONE}.")
     if len(numero) == 9 and numero[0] != "9":
-        raise DadoInvalidoError(f"Celular com DDD tem que começar com 9 depois do DDD, {_EXEMPLO_TELEFONE}.")
+        raise DadoInvalidoError(f"Celular tem que começar com 9 depois do DDD, {_EXEMPLO_TELEFONE}.")
     if len(numero) == 8 and numero[0] not in "2345":
         mensagem = (
             "Parece um celular sem o 9 na frente. Pode mandar de novo com o 9"
