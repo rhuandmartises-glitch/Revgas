@@ -1,6 +1,6 @@
 # RevGás: protótipo de atendimento
 
-Bot de WhatsApp da RevGás para cadastro de clientes e pedido de botijão de gás. É um protótipo para versionar e demonstrar, não um sistema pronto para operar a loja. O código veio de `Luchianni.rar`.
+Bot de WhatsApp da RevGás para cadastro de clientes e pedido de botijão de gás. É um protótipo para versionar e demonstrar, não um sistema pronto para operar a loja (a operação comercial em produção fica para depois). O código veio de `Luchianni.rar`.
 
 ## O que o bot faz
 
