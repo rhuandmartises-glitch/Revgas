@@ -1,6 +1,6 @@
 # RevGás — Protótipo de Atendimento
 
-Código-fonte original do protótipo RevGás, extraído de `Luchianni.rar`. Esta publicação é destinada ao versionamento e à demonstração, não a uma operação comercial em produção.
+Código-fonte original do protótipo RevGás, extraído de `Luchianni.rar`. Esta publicação é destinada ao versionamento e à demonstração, não a uma operação comercial em produção (Futuramente).
 
 ## Simulador visual (chat estilo WhatsApp)
 
